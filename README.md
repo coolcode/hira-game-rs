@@ -12,3 +12,14 @@ Hiragana Learning Game
 💡 q: quit, w: wrong list
 ```
 
+## Run
+install rust
+
+`cargo run`
+
+## Build
+
+```
+cargo build --release
+./target/release/hira-game
+```
