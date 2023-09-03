@@ -23,3 +23,6 @@ install rust
 cargo build --release
 ./target/release/hira-game
 ```
+
+## More
+➡️ Python version: https://github.com/coolcode/hira-game-py
