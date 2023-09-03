@@ -1,5 +1,6 @@
 # Hiragana Learning Game
 
+```
 ----------------------
 Hiragana Learning Game
     平假名学习游戏
@@ -9,4 +10,5 @@ Hiragana Learning Game
      あいうえお
 ----------------------
 💡 q: quit, w: wrong list
+```
 
