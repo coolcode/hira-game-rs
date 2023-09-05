@@ -66,7 +66,7 @@ fn main() {
         let (hiragana, roma) = rand_hiragana(&learning_result_map);
         let mut ans = String::new();
 
-        print!("{}. The romaji of {}: ", i, hiragana);
+        print!("{}.[romaji] {}: ", i + 1, hiragana);
         io::stdout().flush().expect("<error out>");
         io::stdin().read_line(&mut ans).expect("<error in>");
         ans = ans.trim().to_string();
@@ -93,10 +93,11 @@ fn main() {
                 }
                 *value += 1;
             }
-            let correct_rate = correct_count * 100 / total;
+            let correct_rate = generate_rate_bar(correct_count * 100 / total);
+            let nice_space = generate_space(i + 1);
             println!(
-                " {}➜ {} ✅ 📃 {} / {}, {}%",
-                hiragana, roma, correct_count, total, correct_rate
+                "{}{}➜ {} ✅ 📃 {} / {}, {}",
+                nice_space, hiragana, roma, correct_count, total, correct_rate
             );
         } else {
             // wrong answer
@@ -108,10 +109,11 @@ fn main() {
                     *value -= 1;
                 }
             }
-            let correct_rate = correct_count * 100 / total;
+            let correct_rate = generate_rate_bar(correct_count * 100 / total);
+            let nice_space = generate_space(i + 1);
             println!(
-                " {}➜ {} ❌ 📃 {} / {}, {}%",
-                hiragana, roma, correct_count, total, correct_rate
+                "{}{}➜ {} ❌ 📃 {} / {}, {}",
+                nice_space, hiragana, roma, correct_count, total, correct_rate
             );
         }
         i += 1;
@@ -176,6 +178,24 @@ fn print_learning_result(map: &BTreeMap<&str, i32>) {
             println!("{}: {}", key, 0 - value);
         }
     }
+}
+
+fn generate_rate_bar(percentage: u32) -> String {
+    let num_blocks = percentage / 10;
+    let mut bar = String::new();
+    for _ in 0..num_blocks {
+        bar.push('█');
+    }
+    format!("{}% {}", percentage, bar)
+}
+
+fn generate_space(i: u32) -> String {
+    let num_spaces = 11 + (i as f64).log10() as u32;
+    let mut space = String::new();
+    for _ in 0..num_spaces {
+        space.push(' ');
+    }
+    return space;
 }
 
 const GAME_TITLE: &str = r#"
