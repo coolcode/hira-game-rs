@@ -150,17 +150,22 @@ fn main() {
                 continue;
             }
             _ => {
-                if !learning_result_map.contains_key(symbol) {
-                    learning_result_map.insert(symbol, 0);
-                }
-                handle_answer(
-                    i,
-                    &ans,
+                let is_right_answer = ans == roma;
+
+                handle_learning_results(
+                    is_right_answer,
                     &symbol,
-                    &roma,
                     &mut correct_count,
                     &mut learning_result_map,
-                    selected_symbols.len() as u32,
+                );
+
+                let total = selected_symbols.len() as u32;
+                let correct_rate = generate_rate_bar(correct_count * 100 / total);
+                let nice_space = generate_space(i + 1);
+                let icon = if is_right_answer { "✅" } else { "❌" };
+                println!(
+                    "{}{}➜ {} {} 📃 {} / {}, {}",
+                    nice_space, symbol, roma, icon, correct_count, total, correct_rate
                 );
             }
         }
@@ -245,45 +250,26 @@ fn read_user_input(i: u32, symbol: &str) -> String {
     ans.trim().to_string()
 }
 
-fn handle_answer(
-    i: u32,
-    ans: &str,
-    symbol: &str,
-    roma: &str,
+fn handle_learning_results<'a>(
+    is_right_answer: bool,
+    symbol: &'a str,
     correct_count: &mut u32,
-    learning_result_map: &mut BTreeMap<&str, i32>,
-    total: u32,
+    learning_result_map: &mut BTreeMap<&'a str, i32>,
 ) {
-    if ans == roma {
-        // Correct answer
-        if let Some(value) = learning_result_map.get_mut(symbol) {
-            if *value == 0 {
-                *correct_count += 1;
-            }
-            *value += 1;
+    let learning_count = learning_result_map.entry(symbol).or_insert(0);
+
+    if is_right_answer {
+        if *learning_count == 0 {
+            *correct_count += 1;
         }
-        let correct_rate = generate_rate_bar(*correct_count * 100 / total);
-        let nice_space = generate_space(i + 1);
-        println!(
-            "{}{}➜ {} ✅ 📃 {} / {}, {}",
-            nice_space, symbol, roma, *correct_count, total, correct_rate
-        );
+        *learning_count += 1;
     } else {
-        // Wrong answer
-        if let Some(value) = learning_result_map.get_mut(symbol) {
-            if *value > 0 {
-                *correct_count -= 1;
-                *value = 0;
-            } else {
-                *value -= 1;
-            }
+        if *learning_count > 0 {
+            *correct_count -= 1;
+            *learning_count = 0;
+        } else {
+            *learning_count -= 1;
         }
-        let correct_rate = generate_rate_bar(*correct_count * 100 / total);
-        let nice_space = generate_space(i + 1);
-        println!(
-            "{}{}➜ {} ❌ 📃 {} / {}, {}",
-            nice_space, symbol, roma, *correct_count, total, correct_rate
-        );
     }
 }
 
