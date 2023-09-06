@@ -106,11 +106,11 @@ const KATAKANA: [(&str, &str); 46] = [
 fn main() {
     println!("{}", GAME_TITLE);
 
-    let total: u32 = HIRAGANA.len() as u32;
-    let mut i: u32 = 0;
-    let mut correct_count: u32 = 0;
+    let mut total = 0;
+    let mut i = 0;
+    let mut correct_count = 0;
     let mut learning_result_map: BTreeMap<&str, i32> = BTreeMap::new();
-    let mut learning_type = 1; // 1:HIRAGANA, 2:KATAKANA
+    let mut learning_type = 1; // 1: HIRAGANA, 2: KATAKANA
 
     loop {
         let selected_symbols = match learning_type {
@@ -123,8 +123,10 @@ fn main() {
         let mut ans = String::new();
 
         print!("{}.[romaji] {}: ", i + 1, symbol);
-        io::stdout().flush().expect("<error out>");
-        io::stdin().read_line(&mut ans).expect("<error in>");
+        io::stdout().flush().expect("Failed to flush stdout");
+        io::stdin()
+            .read_line(&mut ans)
+            .expect("Failed to read input");
         ans = ans.trim().to_string();
 
         if ans == "q" {
@@ -183,6 +185,7 @@ fn main() {
             );
         }
         i += 1;
+        total = selected_symbols.len() as u32;
     }
 }
 
@@ -265,13 +268,13 @@ fn generate_space(i: u32) -> String {
     for _ in 0..num_spaces {
         space.push(' ');
     }
-    return space;
+    space
 }
 
 const GAME_TITLE: &str = r#"
 -------------------------------
 HIRAGANA/KATAKANA Learning Game
-        平假名学习游戏
+        平假名/片假名学习游戏
            /\_/\  
           ( o.o ) 
            > ^ <
