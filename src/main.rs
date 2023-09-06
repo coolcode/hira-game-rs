@@ -54,6 +54,55 @@ const HIRAGANA: [(&str, &str); 46] = [
     ("ん", "n"),
 ];
 
+const KATAKANA: [(&str, &str); 46] = [
+    ("ア", "a"),
+    ("イ", "i"),
+    ("ウ", "u"),
+    ("エ", "e"),
+    ("オ", "o"),
+    ("カ", "ka"),
+    ("キ", "ki"),
+    ("ク", "ku"),
+    ("ケ", "ke"),
+    ("コ", "ko"),
+    ("サ", "sa"),
+    ("シ", "shi"),
+    ("ス", "su"),
+    ("セ", "se"),
+    ("ソ", "so"),
+    ("タ", "ta"),
+    ("チ", "chi"),
+    ("ツ", "tsu"),
+    ("テ", "te"),
+    ("ト", "to"),
+    ("ナ", "na"),
+    ("ニ", "ni"),
+    ("ヌ", "nu"),
+    ("ネ", "ne"),
+    ("ノ", "no"),
+    ("ハ", "ha"),
+    ("ヒ", "hi"),
+    ("フ", "fu"),
+    ("ヘ", "he"),
+    ("ホ", "ho"),
+    ("マ", "ma"),
+    ("ミ", "mi"),
+    ("ム", "mu"),
+    ("メ", "me"),
+    ("モ", "mo"),
+    ("ヤ", "ya"),
+    ("ユ", "yu"),
+    ("ヨ", "yo"),
+    ("ラ", "ra"),
+    ("リ", "ri"),
+    ("ル", "ru"),
+    ("レ", "re"),
+    ("ロ", "ro"),
+    ("ワ", "wa"),
+    ("ヲ", "wo"),
+    ("ン", "n"),
+];
+
 fn main() {
     println!("{}", GAME_TITLE);
 
@@ -61,12 +110,19 @@ fn main() {
     let mut i: u32 = 0;
     let mut correct_count: u32 = 0;
     let mut learning_result_map: BTreeMap<&str, i32> = BTreeMap::new();
+    let mut learning_type = 1; // 1:HIRAGANA, 2:KATAKANA
 
     loop {
-        let (hiragana, roma) = rand_hiragana(&learning_result_map);
+        let selected_symbols = match learning_type {
+            1 => &HIRAGANA,
+            2 => &KATAKANA,
+            _ => &HIRAGANA, // Default to HIRAGANA if learning_type is not 1 or 2
+        };
+
+        let (symbol, roma) = rand_symbol(selected_symbols, &learning_result_map);
         let mut ans = String::new();
 
-        print!("{}.[romaji] {}: ", i + 1, hiragana);
+        print!("{}.[romaji] {}: ", i + 1, symbol);
         io::stdout().flush().expect("<error out>");
         io::stdin().read_line(&mut ans).expect("<error in>");
         ans = ans.trim().to_string();
@@ -74,20 +130,30 @@ fn main() {
         if ans == "q" {
             println!("QUIT");
             return;
-        }
-
-        if ans == "w" {
+        } else if ans == "w" {
             print_learning_result(&learning_result_map);
+            continue;
+        } else if ans == "1" {
+            learning_type = 1;
+            i = 0;
+            correct_count = 0;
+            learning_result_map.clear();
+            continue;
+        } else if ans == "2" {
+            learning_type = 2;
+            i = 0;
+            correct_count = 0;
+            learning_result_map.clear();
             continue;
         }
 
-        if !learning_result_map.contains_key(hiragana) {
-            learning_result_map.insert(hiragana, 0);
+        if !learning_result_map.contains_key(symbol) {
+            learning_result_map.insert(symbol, 0);
         }
 
         if ans == roma {
             // correct answer
-            if let Some(value) = learning_result_map.get_mut(hiragana) {
+            if let Some(value) = learning_result_map.get_mut(symbol) {
                 if *value == 0 {
                     correct_count += 1;
                 }
@@ -97,11 +163,11 @@ fn main() {
             let nice_space = generate_space(i + 1);
             println!(
                 "{}{}➜ {} ✅ 📃 {} / {}, {}",
-                nice_space, hiragana, roma, correct_count, total, correct_rate
+                nice_space, symbol, roma, correct_count, total, correct_rate
             );
         } else {
             // wrong answer
-            if let Some(value) = learning_result_map.get_mut(hiragana) {
+            if let Some(value) = learning_result_map.get_mut(symbol) {
                 if *value > 0 {
                     correct_count -= 1;
                     *value = 0;
@@ -113,17 +179,20 @@ fn main() {
             let nice_space = generate_space(i + 1);
             println!(
                 "{}{}➜ {} ❌ 📃 {} / {}, {}",
-                nice_space, hiragana, roma, correct_count, total, correct_rate
+                nice_space, symbol, roma, correct_count, total, correct_rate
             );
         }
         i += 1;
     }
 }
 
-fn rand_hiragana(map: &BTreeMap<&str, i32>) -> (&'static str, &'static str) {
+fn rand_symbol<'a>(
+    symbols: &'a [(&'a str, &'a str); 46],
+    map: &BTreeMap<&str, i32>,
+) -> (&'a str, &'a str) {
     let mut rng = rand::thread_rng();
 
-    // 70% chance to pick up a hiragana from the wrong list
+    // 70% chance to pick up a symbol from the wrong list
     if rng.gen_range(0..100) > 70 {
         let mut list: Vec<_> = map.iter().collect();
         list.sort_by_key(|&(_, v)| v);
@@ -133,8 +202,8 @@ fn rand_hiragana(map: &BTreeMap<&str, i32>) -> (&'static str, &'static str) {
                 m += (0 - value) * 20; // The words with a higher error rate have a greater probability of being selected for review.
             }
             if rng.gen_range(0..m) > rng.gen_range(0..100) {
-                if let Some((hiragana, romaji)) = HIRAGANA.iter().find(|&&(h, _)| h == *key) {
-                    return (*hiragana, *romaji);
+                if let Some((symbol, romaji)) = symbols.iter().find(|&&(h, _)| h == *key) {
+                    return (*symbol, *romaji);
                 } else {
                     println!("Element not found with key: {}", key);
                 }
@@ -142,24 +211,25 @@ fn rand_hiragana(map: &BTreeMap<&str, i32>) -> (&'static str, &'static str) {
         }
     }
 
-    // to pick up a hiragana from the unchecked list
+    // to pick up a symbol from the unchecked list
     let correct_list: Vec<_> = map
         .iter()
         .filter(|&(_, &value)| value > 0)
         .map(|(key, _)| key)
         .collect();
 
-    let unchecked_list: Vec<_> = HIRAGANA
+    let unchecked_list: Vec<_> = symbols
         .iter()
         .filter(|&(h, _)| !correct_list.contains(&h))
         .collect();
 
     if unchecked_list.len() > 0 {
-        let (hiragana, romaji) = unchecked_list.choose(&mut rand::thread_rng()).unwrap();
-        return (*hiragana, *romaji);
+        let (symbol, romaji) = unchecked_list.choose(&mut rand::thread_rng()).unwrap();
+        return (*symbol, *romaji);
     }
 
-    *HIRAGANA.choose(&mut rand::thread_rng()).unwrap()
+    let (s, r) = symbols.choose(&mut rand::thread_rng()).unwrap();
+    (*s, *r)
 }
 
 fn print_learning_result(map: &BTreeMap<&str, i32>) {
@@ -199,13 +269,16 @@ fn generate_space(i: u32) -> String {
 }
 
 const GAME_TITLE: &str = r#"
-----------------------
-Hiragana Learning Game
-    平假名学习游戏
-       /\_/\  
-      ( o.o ) 
-       > ^ <
-     あいうえお
-----------------------
-💡 q: quit, w: wrong list
+-------------------------------
+HIRAGANA/KATAKANA Learning Game
+        平假名学习游戏
+           /\_/\  
+          ( o.o ) 
+           > ^ <
+          あいうえお
+-------------------------------
+💡 q: quit
+   w: wrong list
+   1: HIRAGANA
+   2: KATAKANA
 "#;
