@@ -1,7 +1,6 @@
 use rand::seq::SliceRandom;
-use std::collections::BTreeMap;
-// use std::collections::HashSet;
 use rand::Rng;
+use std::collections::BTreeMap;
 use std::io;
 use std::io::Write;
 
@@ -104,88 +103,69 @@ const KATAKANA: [(&str, &str); 46] = [
 ];
 
 fn main() {
+    // Display the game title and instructions
     println!("{}", GAME_TITLE);
 
-    let mut total = 0;
     let mut i = 0;
     let mut correct_count = 0;
     let mut learning_result_map: BTreeMap<&str, i32> = BTreeMap::new();
     let mut learning_type = 1; // 1: HIRAGANA, 2: KATAKANA
 
     loop {
+        // Select the symbols based on the current learning type
         let selected_symbols = match learning_type {
             1 => &HIRAGANA,
             2 => &KATAKANA,
             _ => &HIRAGANA, // Default to HIRAGANA if learning_type is not 1 or 2
         };
 
+        // Get a random symbol and its romaji
         let (symbol, roma) = rand_symbol(selected_symbols, &learning_result_map);
-        let mut ans = String::new();
 
-        print!("{}.[romaji] {}: ", i + 1, symbol);
-        io::stdout().flush().expect("Failed to flush stdout");
-        io::stdin()
-            .read_line(&mut ans)
-            .expect("Failed to read input");
-        ans = ans.trim().to_string();
+        // Read the user's answer
+        let ans = read_user_input(i, &symbol);
 
-        if ans == "q" {
-            println!("QUIT");
-            return;
-        } else if ans == "w" {
-            print_learning_result(&learning_result_map);
-            continue;
-        } else if ans == "1" {
-            learning_type = 1;
-            i = 0;
-            correct_count = 0;
-            learning_result_map.clear();
-            continue;
-        } else if ans == "2" {
-            learning_type = 2;
-            i = 0;
-            correct_count = 0;
-            learning_result_map.clear();
-            continue;
-        }
-
-        if !learning_result_map.contains_key(symbol) {
-            learning_result_map.insert(symbol, 0);
-        }
-
-        if ans == roma {
-            // correct answer
-            if let Some(value) = learning_result_map.get_mut(symbol) {
-                if *value == 0 {
-                    correct_count += 1;
-                }
-                *value += 1;
+        // Handle user commands
+        match &ans[..] {
+            "q" => {
+                println!("QUIT");
+                return;
             }
-            let correct_rate = generate_rate_bar(correct_count * 100 / total);
-            let nice_space = generate_space(i + 1);
-            println!(
-                "{}{}➜ {} ✅ 📃 {} / {}, {}",
-                nice_space, symbol, roma, correct_count, total, correct_rate
-            );
-        } else {
-            // wrong answer
-            if let Some(value) = learning_result_map.get_mut(symbol) {
-                if *value > 0 {
-                    correct_count -= 1;
-                    *value = 0;
-                } else {
-                    *value -= 1;
-                }
+            "w" => {
+                print_learning_result(&learning_result_map);
+                continue;
             }
-            let correct_rate = generate_rate_bar(correct_count * 100 / total);
-            let nice_space = generate_space(i + 1);
-            println!(
-                "{}{}➜ {} ❌ 📃 {} / {}, {}",
-                nice_space, symbol, roma, correct_count, total, correct_rate
-            );
+            "1" => {
+                learning_type = 1;
+                i = 0;
+                correct_count = 0;
+                learning_result_map.clear();
+                continue;
+            }
+            "2" => {
+                learning_type = 2;
+                i = 0;
+                correct_count = 0;
+                learning_result_map.clear();
+                continue;
+            }
+            _ => {
+                if !learning_result_map.contains_key(symbol) {
+                    learning_result_map.insert(symbol, 0);
+                }
+                handle_answer(
+                    i,
+                    &ans,
+                    &symbol,
+                    &roma,
+                    &mut correct_count,
+                    &mut learning_result_map,
+                    selected_symbols.len() as u32,
+                );
+            }
         }
+
         i += 1;
-        total = selected_symbols.len() as u32;
     }
 }
 
@@ -195,16 +175,33 @@ fn rand_symbol<'a>(
 ) -> (&'a str, &'a str) {
     let mut rng = rand::thread_rng();
 
-    // 70% chance to pick up a symbol from the wrong list
-    if rng.gen_range(0..100) > 70 {
-        let mut list: Vec<_> = map.iter().collect();
-        list.sort_by_key(|&(_, v)| v);
-        for (key, value) in list {
-            let mut m = 100;
+    // Calculate the maximum value for random selection
+    let max_selection_value = if !map.is_empty() {
+        // If there are symbols with errors, increase the selection range
+        120
+    } else {
+        100
+    };
+
+    // Generate a random number to determine if a symbol with errors should be selected
+    let select_with_errors = rng.gen_range(0..100) > 70;
+
+    // Check symbols with errors if they should be selected
+    if select_with_errors {
+        // Create a list of symbols sorted by error count
+        let mut sorted_symbols: Vec<_> = map.iter().collect();
+        sorted_symbols.sort_by_key(|&(_, v)| v);
+
+        for (key, value) in sorted_symbols {
+            let mut selection_range = max_selection_value;
+
+            // Increase the selection range for symbols with errors
             if *value < 0 {
-                m += (0 - value) * 20; // The words with a higher error rate have a greater probability of being selected for review.
+                selection_range += (-*value) * 20;
             }
-            if rng.gen_range(0..m) > rng.gen_range(0..100) {
+
+            // Check if the symbol should be selected
+            if rng.gen_range(0..selection_range) > rng.gen_range(0..100) {
                 if let Some((symbol, romaji)) = symbols.iter().find(|&&(h, _)| h == *key) {
                     return (*symbol, *romaji);
                 } else {
@@ -214,61 +211,106 @@ fn rand_symbol<'a>(
         }
     }
 
-    // to pick up a symbol from the unchecked list
+    // Select a symbol from the unchecked list
     let correct_list: Vec<_> = map
         .iter()
         .filter(|&(_, &value)| value > 0)
         .map(|(key, _)| key)
         .collect();
-
     let unchecked_list: Vec<_> = symbols
         .iter()
         .filter(|&(h, _)| !correct_list.contains(&h))
         .collect();
 
-    if unchecked_list.len() > 0 {
-        let (symbol, romaji) = unchecked_list.choose(&mut rand::thread_rng()).unwrap();
+    if let Some((symbol, romaji)) = unchecked_list.choose(&mut rng) {
         return (*symbol, *romaji);
     }
 
-    let (s, r) = symbols.choose(&mut rand::thread_rng()).unwrap();
-    (*s, *r)
+    // If no unchecked symbols are left, select a random symbol
+    if let Some((symbol, romaji)) = symbols.choose(&mut rng) {
+        return (*symbol, *romaji);
+    }
+
+    // Default fallback (shouldn't reach this point)
+    ("", "")
+}
+
+fn read_user_input(i: u32, symbol: &str) -> String {
+    print!("{}.[romaji] {}: ", i + 1, symbol);
+    io::stdout().flush().expect("<error out>");
+
+    let mut ans = String::new();
+    io::stdin().read_line(&mut ans).expect("<error in>");
+
+    ans.trim().to_string()
+}
+
+fn handle_answer(
+    i: u32,
+    ans: &str,
+    symbol: &str,
+    roma: &str,
+    correct_count: &mut u32,
+    learning_result_map: &mut BTreeMap<&str, i32>,
+    total: u32,
+) {
+    if ans == roma {
+        // Correct answer
+        if let Some(value) = learning_result_map.get_mut(symbol) {
+            if *value == 0 {
+                *correct_count += 1;
+            }
+            *value += 1;
+        }
+        let correct_rate = generate_rate_bar(*correct_count * 100 / total);
+        let nice_space = generate_space(i + 1);
+        println!(
+            "{}{}➜ {} ✅ 📃 {} / {}, {}",
+            nice_space, symbol, roma, *correct_count, total, correct_rate
+        );
+    } else {
+        // Wrong answer
+        if let Some(value) = learning_result_map.get_mut(symbol) {
+            if *value > 0 {
+                *correct_count -= 1;
+                *value = 0;
+            } else {
+                *value -= 1;
+            }
+        }
+        let correct_rate = generate_rate_bar(*correct_count * 100 / total);
+        let nice_space = generate_space(i + 1);
+        println!(
+            "{}{}➜ {} ❌ 📃 {} / {}, {}",
+            nice_space, symbol, roma, *correct_count, total, correct_rate
+        );
+    }
 }
 
 fn print_learning_result(map: &BTreeMap<&str, i32>) {
-    // Iterate over the map and filter elements with values less than 0
+    // Filter and sort elements with negative values (symbols with errors)
     let mut wrong_list: Vec<_> = map.iter().filter(|&(_, &value)| value < 0).collect();
-
-    // Sort by value
     wrong_list.sort_by_key(|&(_, v)| v);
 
-    // Check if there are elements in the wrong list
     if wrong_list.is_empty() {
         println!("🈚️");
     } else {
         println!("❌ wrong list:");
         for (key, value) in wrong_list {
-            println!("{}: {}", key, 0 - value);
+            println!("{}: {}", key, 0 - *value);
         }
     }
 }
 
 fn generate_rate_bar(percentage: u32) -> String {
     let num_blocks = percentage / 10;
-    let mut bar = String::new();
-    for _ in 0..num_blocks {
-        bar.push('█');
-    }
+    let bar: String = (0..num_blocks).map(|_| "█").collect();
     format!("{}% {}", percentage, bar)
 }
 
 fn generate_space(i: u32) -> String {
     let num_spaces = 11 + (i as f64).log10() as u32;
-    let mut space = String::new();
-    for _ in 0..num_spaces {
-        space.push(' ');
-    }
-    space
+    " ".repeat(num_spaces as usize)
 }
 
 const GAME_TITLE: &str = r#"
