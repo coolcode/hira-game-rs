@@ -274,7 +274,7 @@ fn generate_space(i: u32) -> String {
 const GAME_TITLE: &str = r#"
 -------------------------------
 HIRAGANA/KATAKANA Learning Game
-        平假名/片假名学习游戏
+    平假名/片假名学习游戏
            /\_/\  
           ( o.o ) 
            > ^ <
